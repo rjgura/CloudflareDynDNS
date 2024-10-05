@@ -12,7 +12,7 @@ This script assumes that you already have a Cloudflare account and your domain(s
    2. Domain name added and active on Cloudflare
    3. Cloudflare API Token via Cloudflare Dashboard
    4. Python 3.12.6 64 bit
-   5. [cloudflare-python](https://github.com/cloudflare/cloudflare-python)
+   5. [cloudflare-python 3.1.0](https://github.com/cloudflare/cloudflare-python)
    6. pif 0.8.2 module for Python
 
 

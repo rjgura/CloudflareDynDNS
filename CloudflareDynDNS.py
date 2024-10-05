@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+import os
+import asyncio
 import configparser
 import logging
 import sys
 import time
 
-from godaddypy import Client, Account
+from cloudflare import AsyncCloudFlare
 from logging.handlers import RotatingFileHandler
 from pif import get_public_ip
 
