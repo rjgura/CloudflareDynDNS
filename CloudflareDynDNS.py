@@ -7,7 +7,7 @@ import logging
 import sys
 import time
 
-from cloudflare import AsyncCloudFlare
+from cloudflare import AsyncCloudflare
 from logging.handlers import RotatingFileHandler
 from pif import get_public_ip
 
@@ -61,8 +61,7 @@ try:
     DOMAINS = config.items('DOMAINS')
     RECORD_TYPE = config['RECORD']['Record_Type']
     RECORD_NAME = config['RECORD']['Record_Name']
-    API_KEY = config['CREDENTIALS']['GoDaddyAPI_Key']
-    API_SECRET = config['CREDENTIALS']['GoDaddyAPI_Secret']
+    CLOUDFLARE_API_TOKEN = config['CREDENTIALS']['Cloudflare_API_Token']
 
 except KeyError:
     logger.error('Error loading ini: check ini exists and settings are correct')
@@ -78,29 +77,56 @@ except Exception as e:
     sys.exit()
 
 if publicIP != LAST_RECORDED_IP:
+    client = AsyncCloudflare(api_token=CLOUDFLARE_API_TOKEN)
     for DOMAIN in DOMAINS:
         try:
-            logger.debug('Getting GoDaddy Records for ' + DOMAIN[1])
-            godaddy_acct = Account(api_key=API_KEY, api_secret=API_SECRET)
-            client = Client(godaddy_acct)
-            records = client.get_records(DOMAIN[1], record_type=RECORD_TYPE, name=RECORD_NAME)
-            try:
+            async def update_a_record(domain, new_ip):
+                logger.debug('Getting Cloudflare Records for ' + DOMAIN[1])
+                zones = await client.zones.list(name=domain)
+                if not zones:
+                    logger.debug(f'Zone not found for {domain}')
+                    return
+                zone_id = zones[0]['id']
+
+                records = await client.dns.records.list(zone_id=zone_id, type="A", name=domain)
+                if not records:
+                    logger.debug(f'No A records found for {domain}')
+                    return
+
                 for record in records:
-                    if publicIP != record["data"]:
-                        updateResult = client.update_record_ip(publicIP, DOMAIN[1], name=RECORD_NAME,
-                                                               record_type=RECORD_TYPE)
-                        if updateResult is True:
-                            logger.info('DNS Record Updated for ' + DOMAIN[1] + ':' + record["data"] + ' to ' + publicIP)
-                    else:
-                        logger.info('DNS Record Update not Needed for ' + DOMAIN[1] + ':' + publicIP)
-
-            # TODO: Update CloudflareDynDNS.ini with new external IP address
-
-            except Exception as e:
-                logger.error('Error Trying to Update DNS Record' + e.__str__())
-                sys.exit()
-            # TODO: Set CloudflareDynDNS.ini with error so will try to update Cloudflare again on next run
+                    record_id = record['id']
+                    await client.dns.records.update(
+                        zone_id=zone_id,
+                        record_id=record_id,
+                        type="A",
+                        content=new_ip,
+                    )
+                    logger.debug(f'Updated A record for {domain} to {new_ip}')
+                    logger.info('DNS Record Updated for ' + DOMAIN[1] + ':' + record["data"] + ' to ' + publicIP)
         except Exception as e:
-            logger.error('Error Getting GoDaddy Records: ' + e.__str__())
+            logger.debug(f'Error updating A record for {domain}: {e}')
+            except Exception as e:
+            logger.error('Error Trying to Update DNS Record' + e.__str__())
+            sys.exit()
+            except Exception as e:
+                logger.error('Error Getting GoDaddy Records: ' + e.__str__())
+else:
+    logger.info('DNS Record Update not Needed for ' + DOMAIN[1] + ':' + publicIP)
 
+
+async def main():
+    tasks = [
+        update_a_record(domain_info['name'], domain_info['new_ip'])
+        for domain_info in domains_to_update
+    ]
+
+    await asyncio.gather(*tasks)
+
+asyncio.run(main())
+
+
+                # TODO: Update CloudflareDynDNS.ini with new external IP address
+
+
+                # TODO: Set CloudflareDynDNS.ini with error so will try to update Cloudflare again on next run
 logger.info("Code Executed in %s Seconds", (time.time() - start_time))
