@@ -8,6 +8,7 @@ import sys
 import time
 
 from cloudflare import AsyncCloudflare
+from cloudflare.types.dns import Record
 from logging.handlers import RotatingFileHandler
 from pif import get_public_ip
 
@@ -43,6 +44,7 @@ fh = RotatingFileHandler(LOG_FILENAME,
                          encoding=None,
                          delay=False
                          )
+
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(FORMATTER)
 logger.addHandler(fh)
@@ -57,8 +59,8 @@ config = configparser.ConfigParser()
 config.read(CONFIG_PATH)
 
 try:
-    LAST_RECORDED_IP = config.items('LAST_RECORDED_IP')
-    DOMAINS = config.items('DOMAINS')
+    LAST_RECORDED_IP = config.items('IP_ADDRESSES')
+    DOMAINS_LIST = config.items('DOMAINS_LIST')
     RECORD_TYPE = config['RECORD']['Record_Type']
     RECORD_NAME = config['RECORD']['Record_Name']
     CLOUDFLARE_API_TOKEN = config['CREDENTIALS']['Cloudflare_API_Token']
@@ -68,65 +70,68 @@ except KeyError:
     quit()
 
 try:
-    logger.debug('Getting Public IP')
-    publicIP = get_public_ip()
-    logger.info('Got Public IP: ' + publicIP)
+    logger.debug('Getting External IP')
+    externalIP = get_public_ip()
+    logger.info('Got External IP: ' + externalIP)
 
 except Exception as e:
-    logger.error('Error Getting Public IP: ' + e.__str__())
+    logger.error('Error Getting External IP: ' + e.__str__())
     sys.exit()
 
-if publicIP != LAST_RECORDED_IP:
+if externalIP != LAST_RECORDED_IP['last_recorded_IP']:
     client = AsyncCloudflare(api_token=CLOUDFLARE_API_TOKEN)
-    for DOMAIN in DOMAINS:
+
+    async def update_a_record(domain, new_ip):
         try:
-            async def update_a_record(domain, new_ip):
-                logger.debug('Getting Cloudflare Records for ' + DOMAIN[1])
-                zones = await client.zones.list(name=domain)
-                if not zones:
-                    logger.debug(f'Zone not found for {domain}')
-                    return
-                zone_id = zones[0]['id']
+            logger.debug(f'fGetting Cloudflare Records for {domain}')
+            zones = await client.zones.list(name=domain)
+            if not zones:
+                logger.debug(f'Zone not found for {domain}')
+                return
+            zone_id = zones[0]['id']
 
-                records = await client.dns.records.list(zone_id=zone_id, type="A", name=domain)
-                if not records:
-                    logger.debug(f'No A records found for {domain}')
-                    return
+            records = await client.dns.records.list(zone_id=zone_id, type="A", name=domain)
+            if not records:
+                logger.info(f'No A records found for {domain}')
+                return
 
-                for record in records:
-                    record_id = record['id']
-                    await client.dns.records.update(
-                        zone_id=zone_id,
-                        record_id=record_id,
-                        type="A",
-                        content=new_ip,
-                    )
-                    logger.debug(f'Updated A record for {domain} to {new_ip}')
-                    logger.info('DNS Record Updated for ' + DOMAIN[1] + ':' + record["data"] + ' to ' + publicIP)
         except Exception as e:
-            logger.debug(f'Error updating A record for {domain}: {e}')
-            except Exception as e:
-            logger.error('Error Trying to Update DNS Record' + e.__str__())
-            sys.exit()
-            except Exception as e:
-                logger.error('Error Getting GoDaddy Records: ' + e.__str__())
+            logger.error(f'Error updating A record for {domain}: {e}')
+
+            for record in records:
+                record_id = record['dns_record_id']
+                await client.dns.records.update(
+                    zone_id=zone_id,
+                    dns_record_id=record_id,
+                    type="A",
+                    content=new_ip,
+                )
+           #       logger.debug(f'Updated A record for {domain} to {new_ip}')
+           #       logger.info('DNS Record Updated for ' + DOMAIN[1] + ':' + record["data"] + ' to ' + externalIP)
+
+         # except Exception as e:
+         # logger.error('Error Trying to Update DNS Record' + e.__str__())
+         # sys.exit()
+         # except Exception as e:
+         #     logger.error('Error Getting GoDaddy Records: ' + e.__str__())
 else:
-    logger.info('DNS Record Update not Needed for ' + DOMAIN[1] + ':' + publicIP)
+    logger.info(f'fDNS Record Update not Needed for :{externalIP}')
 
 
 async def main():
     tasks = [
-        update_a_record(domain_info['name'], domain_info['new_ip'])
-        for domain_info in domains_to_update
+        update_a_record(DOMAIN[1], externalIP)
+        for DOMAIN in DOMAINS_LIST
     ]
 
     await asyncio.gather(*tasks)
 
+
 asyncio.run(main())
 
 
-                # TODO: Update CloudflareDynDNS.ini with new external IP address
+ # TODO: Update CloudflareDynDNS.ini with new external IP address
 
 
-                # TODO: Set CloudflareDynDNS.ini with error so will try to update Cloudflare again on next run
+# TODO: Set CloudflareDynDNS.ini with error so will try to update Cloudflare again on next run
 logger.info("Code Executed in %s Seconds", (time.time() - start_time))
