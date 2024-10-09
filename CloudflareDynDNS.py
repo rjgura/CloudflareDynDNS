@@ -15,6 +15,7 @@ start_time = time.time()
 #
 # Constants
 #
+SCRIPT_VERSION = 'v1.0.0'
 CONFIG_PATH = r'LocalConfig/CloudflareDynDNS.ini'
 LOG_FILENAME = r'LocalConfig/CloudflareDynDNS.log'
 '''
@@ -47,7 +48,7 @@ fh.setLevel(logging.DEBUG)
 fh.setFormatter(FORMATTER)
 logger.addHandler(fh)
 
-logger.debug(f'Beginning a new run of CloudflareDynDNS.py')
+logger.debug(f'Beginning a new run of CloudflareDynDNS.py {SCRIPT_VERSION}')
 # Check if running on a linux system, but not from terminal
 # This fix stops output going to an unattached terminal if being run by cron
 if sys.platform[0:5] == 'linux' and not sys.stdout.isatty():
