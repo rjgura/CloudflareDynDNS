@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import os
 import asyncio
 import configparser
 import logging
@@ -8,7 +7,6 @@ import sys
 import time
 
 from cloudflare import AsyncCloudflare
-from cloudflare.types.dns import Record
 from logging.handlers import RotatingFileHandler
 from pif import get_public_ip
 
@@ -85,6 +83,8 @@ except Exception as e:
     logger.error(f'Error Getting External IP: {e.__str__()}')
     sys.exit()
 
+domain_update_error = False
+
 if external_ip != last_recorded_ip:
     logger.debug(f'Creating new AsyncCloudflare client')
     client = AsyncCloudflare(api_token=CLOUDFLARE_API_TOKEN)
@@ -124,38 +124,46 @@ if external_ip != last_recorded_ip:
 
         except Exception as e:
             logger.error(f'Error updating A record for {domain}: {e}')
+            global domain_update_error
+            domain_update_error = True
 
         # except Exception as e:
         #     logger.error(f'Error Trying to Update DNS Record: {e.__str__()}')
         #     sys.exit()
 
+    # Collect all the tasks based on the number of domains in .ini
+    async def main():
+        tasks = [
+            update_a_record(DOMAIN[1], external_ip)
+            for DOMAIN in DOMAINS_LIST
+        ]
+
+        await asyncio.gather(*tasks)
+
+    # Run main event loop
+    asyncio.run(main())
+
 else:
-    logger.info(f'fDNS Record Update not Needed for :{external_ip}')
+    logger.info(f'DNS Record Update not Needed for: {external_ip}')
 
-
-async def main():
-    tasks = [
-        update_a_record(DOMAIN[1], external_ip)
-        for DOMAIN in DOMAINS_LIST
-    ]
-
-    await asyncio.gather(*tasks)
-
-
-asyncio.run(main())
-
+#
+# Debug code to check for asyncio tasks that haven't completed
+#
 # pending_tasks = asyncio.all_tasks()
 # for task in pending_tasks:
 #     logger.debug(f'Pending Task: {task.get_name()}')
 #     task.cancel()
 #     logger.debug(f'Pending Task Killed: {task.get_name()}')
 
+# Update CloudflareDynDNS.ini with new external IP address
+if external_ip != last_recorded_ip and domain_update_error == False:
+    if 'IP_ADDRESSES' not in config:
+        config.add_section('IP_ADDRESSES')
+    config['IP_ADDRESSES']['Last_Recorded_IP'] = external_ip
 
- # TODO: Update CloudflareDynDNS.ini with new external IP address
+    with open(CONFIG_PATH, 'w', encoding='utf-8') as configfile:
+        # noinspection PyTypeChecker
+        config.write(configfile)
+    logger.info(f'Updated config with new IP: {external_ip} - {CONFIG_PATH}')
 
-
-# TODO: Set CloudflareDynDNS.ini with error so will try to update Cloudflare again on next run
 logger.info("Code Executed in %s Seconds", (time.time() - start_time))
-
-
-
