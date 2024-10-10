@@ -16,7 +16,7 @@ start_time = time.time()
 # Constants
 #
 SCRIPT_VERSION = 'v1.0.5'
-CONFIG_PATH = r'LocalConfig/CloudflareDynDNS.ini'
+CONFIG_PATH = r'LocalConfig/Settings.ini'
 LOG_FILENAME = r'LocalConfig/CloudflareDynDNS.log'
 '''
 LOG_FILENAME = 'CloudflareDynDNS.log' for Windows 
@@ -55,7 +55,7 @@ if sys.platform[0:5] == 'linux' and not sys.stdout.isatty():
     logger.removeHandler(sh)
 
 #
-# Import CloudflareDynDNS.ini
+# Import Settings from Config File .ini
 #
 config = configparser.ConfigParser()
 config.read(CONFIG_PATH)
@@ -161,7 +161,7 @@ else:
 #     task.cancel()
 #     logger.debug(f'Pending Task Killed: {task.get_name()}')
 
-# Update CloudflareDynDNS.ini with new external IP address
+# Update Config File .ini with new external IP address
 if external_ip != last_recorded_ip and domain_update_error == False:
     if 'IP_ADDRESSES' not in config:
         config.add_section('IP_ADDRESSES')
