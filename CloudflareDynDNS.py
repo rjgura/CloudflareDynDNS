@@ -51,6 +51,7 @@ logger.addHandler(fh)
 # Check if running on a linux system, but not from terminal
 # This fix stops output going to an unattached terminal if being run by cron
 if sys.platform[0:5] == 'linux' and not sys.stdout.isatty():
+    logger.debug(f'Script running in Linux with no Terminal Connected, removing stream handler')
     logger.removeHandler(sh)
 
 #
@@ -71,22 +72,22 @@ try:
  # TODO: Catch error when missing an entry
 
 except KeyError:
-    logger.error('Error loading ini: check ini exists and settings are correct')
+    logger.error('Error loading config file: check that file exists and settings inside are correct')
     quit()
 
 try:
     logger.debug('Getting External IP')
     external_ip = get_public_ip()
-    logger.info(f'Got External IP: {external_ip}')
+    logger.info(f'Got external IP: {external_ip}')
 
 except Exception as e:
-    logger.error(f'Error Getting External IP: {e.__str__()}')
+    logger.error(f'Error getting External IP: {e.__str__()}')
     sys.exit()
 
 domain_update_error = False
 
 if external_ip != last_recorded_ip:
-    logger.debug(f'Creating new AsyncCloudflare client')
+    logger.debug(f'Creating new AsyncCloudflare API client')
     client = AsyncCloudflare(api_token=CLOUDFLARE_API_TOKEN)
     # TODO: Catch error if no network
     # TODO: Catch rate limit error
@@ -144,7 +145,7 @@ if external_ip != last_recorded_ip:
     asyncio.run(main())
 
 else:
-    logger.info(f'DNS Record Update not Needed for: {external_ip}')
+    logger.info(f'DNS record is already: {external_ip}. No update needed')
 
 #
 # Debug code to check for asyncio tasks that haven't completed
@@ -159,11 +160,12 @@ else:
 if external_ip != last_recorded_ip and domain_update_error == False:
     if 'IP_ADDRESSES' not in config:
         config.add_section('IP_ADDRESSES')
+        logger.info(f'Adding IP_ADDRESSES section to config file')
     config['IP_ADDRESSES']['Last_Recorded_IP'] = external_ip
 
     with open(CONFIG_PATH, 'w', encoding='utf-8') as configfile:
         # noinspection PyTypeChecker
         config.write(configfile)
-    logger.info(f'Updated config with new IP: {external_ip} - {CONFIG_PATH}')
+    logger.info(f'Updated config file with new IP: {external_ip} - {CONFIG_PATH}')
 
-logger.info("Code Executed in %.2f Seconds", (time.time() - start_time))
+logger.info("Script completed in %.2f seconds", (time.time() - start_time))
