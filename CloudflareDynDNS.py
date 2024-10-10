@@ -134,14 +134,19 @@ if external_ip != last_recorded_ip:
 
     # Collect all the tasks based on the number of domains in .ini
     async def main():
+        logger.debug(f'Creating list of async tasks')
+        for DOMAIN in DOMAINS_LIST:
+            logger.debug(f'Adding async task to update domain: {DOMAIN[1]} with IP Address: {external_ip}')
         tasks = [
             update_a_record(DOMAIN[1], external_ip)
             for DOMAIN in DOMAINS_LIST
         ]
 
+        logger.debug(f'Running async tasks and awaiting their completion')
         await asyncio.gather(*tasks)
 
     # Run main event loop
+    logger.debug(f'Starting asyncio run of main()')
     asyncio.run(main())
 
 else:
