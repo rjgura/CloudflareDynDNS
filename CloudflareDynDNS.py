@@ -15,7 +15,7 @@ start_time = time.time()
 #
 # Constants
 #
-SCRIPT_VERSION = 'v1.0.0'
+SCRIPT_VERSION = 'v1.0.5'
 CONFIG_PATH = r'LocalConfig/CloudflareDynDNS.ini'
 LOG_FILENAME = r'LocalConfig/CloudflareDynDNS.log'
 '''
