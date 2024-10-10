@@ -48,7 +48,6 @@ fh.setLevel(logging.DEBUG)
 fh.setFormatter(FORMATTER)
 logger.addHandler(fh)
 
-logger.debug(f'Beginning a new run of CloudflareDynDNS.py {SCRIPT_VERSION}')
 # Check if running on a linux system, but not from terminal
 # This fix stops output going to an unattached terminal if being run by cron
 if sys.platform[0:5] == 'linux' and not sys.stdout.isatty():
@@ -167,4 +166,4 @@ if external_ip != last_recorded_ip and domain_update_error == False:
         config.write(configfile)
     logger.info(f'Updated config with new IP: {external_ip} - {CONFIG_PATH}')
 
-logger.info("Code Executed in %s Seconds", (time.time() - start_time))
+logger.info("Code Executed in %.2f Seconds", (time.time() - start_time))
