@@ -15,7 +15,7 @@ start_time = time.time()
 #
 # Constants
 #
-SCRIPT_VERSION = 'v1.0.5'
+SCRIPT_VERSION = 'v1.0.9'
 CONFIG_PATH = r'LocalConfig/Settings.ini'
 LOG_FILENAME = r'LocalConfig/CloudflareDynDNS.log'
 '''
@@ -104,7 +104,7 @@ if external_ip != last_recorded_ip:
             logger.debug(f'Zone ID found for {domain}: {zone_id}')
 
             logger.debug(f'Getting DNS \'A\' record list for domain: {domain} and zone ID: {zone_id}')
-            records = [record async for record in client.dns.records.list(zone_id=zone_id, type="A", name=domain)]
+            records = [record async for record in client.dns.records.list(zone_id=zone_id, type="A", name=RECORD_NAME)]
             if not records:
                 logger.info(f'No DNS \'A\' records found for domain: {domain} and zone ID: {zone_id}')
                 return
@@ -136,7 +136,7 @@ if external_ip != last_recorded_ip:
     async def main():
         logger.debug(f'Creating list of async tasks')
         for DOMAIN in DOMAINS_LIST:
-            logger.debug(f'Adding async task to update domain: {DOMAIN[1]} with IP Address: {external_ip}')
+            logger.debug(f'Adding async task to update domain: {RECORD_NAME}.{DOMAIN[1]} with IP Address: {external_ip}')
         tasks = [
             update_a_record(DOMAIN[1], external_ip)
             for DOMAIN in DOMAINS_LIST
