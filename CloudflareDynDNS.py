@@ -15,7 +15,7 @@ start_time = time.time()
 #
 # Constants
 #
-SCRIPT_VERSION = 'v1.0.9'
+SCRIPT_VERSION = 'v1.1.0'
 CONFIG_PATH = r'LocalConfig/Settings.ini'
 LOG_FILENAME = r'LocalConfig/CloudflareDynDNS.log'
 '''
@@ -103,16 +103,19 @@ if external_ip != last_recorded_ip:
             zone_id = zones[0].id
             logger.debug(f'Zone ID found for {domain}: {zone_id}')
 
-            logger.debug(f'Getting DNS \'A\' record list for domain: {domain} and zone ID: {zone_id}')
-            records = [record async for record in client.dns.records.list(zone_id=zone_id, type="A", name=RECORD_NAME)]
+            logger.debug(f'Getting DNS \'A\' record list for domain: {RECORD_NAME}.{domain} and zone ID: {zone_id}')
+            records = [record async for record in client.dns.records.list(zone_id=zone_id,
+                                                                          type="A",
+                                                                          name=f"{RECORD_NAME}.{domain}"
+                                                                          )]
             if not records:
-                logger.info(f'No DNS \'A\' records found for domain: {domain} and zone ID: {zone_id}')
+                logger.info(f'No DNS \'A\' records found for domain: {RECORD_NAME}.{domain} and zone ID: {zone_id}')
                 return
 
             for record in records:
                 record_id = record.id
 
-                logger.debug(f'Updating IP Address for domain: {domain} and DNS \'A\' record ID: {record_id}')
+                logger.debug(f'Updating IP Address for domain: {RECORD_NAME}.{domain} and DNS \'A\' record ID: {record_id}')
                 await client.dns.records.update(
                     zone_id=zone_id,
                     name=RECORD_NAME,
@@ -120,10 +123,10 @@ if external_ip != last_recorded_ip:
                     type="A",
                     content=new_ip
                 )
-                logger.info(f'DNS \'A\' record updated for domain: {domain} to {external_ip}')
+                logger.info(f'DNS \'A\' record updated for domain: {RECORD_NAME}.{domain} to {external_ip}')
 
         except Exception as e:
-            logger.error(f'Error updating DNS \'A\' record for domain: {domain} and DNS \'A\' record ID: {record_id}')
+            logger.error(f'Error updating DNS \'A\' record for domain: {RECORD_NAME}.{domain} and DNS \'A\' record ID: {record_id}')
             logger.error(f'Error: {e}')
             global domain_update_error
             domain_update_error = True
