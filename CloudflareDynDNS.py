@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import asyncio
 import configparser
 import logging
@@ -24,6 +25,14 @@ LOG_FILENAME = '/var/log/CloudflareDynDNS.log' for Linux
 '''
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 FORMATTER = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s', DATE_FORMAT)
+
+parser = argparse.ArgumentParser(usage='CloudflareDynDNS.py [-v]',
+                                 description='Updates Cloudflare DNS records for configured domain names with current external IP address.'
+                                 )
+
+parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {SCRIPT_VERSION}')
+
+args = parser.parse_args()
 
 #
 # Setup Logging
