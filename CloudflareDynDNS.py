@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import asyncio
 import configparser
 import logging
@@ -15,7 +16,7 @@ start_time = time.time()
 #
 # Constants
 #
-SCRIPT_VERSION = 'v1.1.0'
+SCRIPT_VERSION = 'v1.1.2'
 CONFIG_PATH = r'LocalConfig/Settings.ini'
 LOG_FILENAME = r'LocalConfig/CloudflareDynDNS.log'
 '''
@@ -24,6 +25,14 @@ LOG_FILENAME = '/var/log/CloudflareDynDNS.log' for Linux
 '''
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 FORMATTER = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s', DATE_FORMAT)
+
+parser = argparse.ArgumentParser(usage='CloudflareDynDNS.py [-v]',
+                                 description='Updates Cloudflare DNS records for configured domain names with current external IP address.'
+                                 )
+
+parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {SCRIPT_VERSION}')
+
+args = parser.parse_args()
 
 #
 # Setup Logging
@@ -103,30 +112,38 @@ if external_ip != last_recorded_ip:
             zone_id = zones[0].id
             logger.debug(f'Zone ID found for {domain}: {zone_id}')
 
-            logger.debug(f'Getting DNS \'A\' record list for domain: {RECORD_NAME}.{domain} and zone ID: {zone_id}')
+            # Cloudflare API doesn't respect the @ root shortcut and wants FQDN for non @ record names
+            if RECORD_NAME == '@':
+                # Have to pass the domain root and not @
+                record_name = domain
+            else:
+                # Have to pass the FQDN if not updating the domain root
+                record_name = f'{RECORD_NAME}.{domain}'
+            logger.debug(f'Record name to find ID DNS records for is: {record_name}')
+            logger.debug(f'Getting DNS \'A\' record list for domain: {record_name} and zone ID: {zone_id}')
             records = [record async for record in client.dns.records.list(zone_id=zone_id,
-                                                                          type="A",
-                                                                          name=f"{RECORD_NAME}.{domain}"
+                                                                          type='A',
+                                                                          name=record_name
                                                                           )]
             if not records:
-                logger.info(f'No DNS \'A\' records found for domain: {RECORD_NAME}.{domain} and zone ID: {zone_id}')
+                logger.info(f'No DNS \'A\' records found for domain: {record_name} and zone ID: {zone_id}')
                 return
 
             for record in records:
                 record_id = record.id
 
-                logger.debug(f'Updating IP Address for domain: {RECORD_NAME}.{domain} and DNS \'A\' record ID: {record_id}')
+                logger.debug(f'Updating IP Address for domain: {record_name} and DNS \'A\' record ID: {record_id}')
                 await client.dns.records.update(
                     zone_id=zone_id,
                     name=RECORD_NAME,
                     dns_record_id=record_id,
-                    type="A",
+                    type='A',
                     content=new_ip
                 )
-                logger.info(f'DNS \'A\' record updated for domain: {RECORD_NAME}.{domain} to {external_ip}')
+                logger.info(f'DNS \'A\' record updated for domain: {record_name} to {external_ip}')
 
         except Exception as e:
-            logger.error(f'Error updating DNS \'A\' record for domain: {RECORD_NAME}.{domain} and DNS \'A\' record ID: {record_id}')
+            logger.error(f'Error updating DNS \'A\' record for domain: {record_name} and DNS \'A\' record ID: {record_id}')
             logger.error(f'Error: {e}')
             global domain_update_error
             domain_update_error = True
@@ -176,4 +193,4 @@ if external_ip != last_recorded_ip and domain_update_error == False:
         config.write(configfile)
     logger.info(f'Updated config file with new IP: {external_ip} - {CONFIG_PATH}')
 
-logger.info("Script completed in %.2f seconds", (time.time() - start_time))
+logger.info('Script completed in %.2f seconds', (time.time() - start_time))
